@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/quic-go/quic-go"
-	"github.com/rorre/karamel/client"
-	"github.com/rorre/karamel/protocol"
+	"github.com/rorre/karamel/pkg/client"
+	"github.com/rorre/karamel/pkg/protocol"
 )
 
 func main() {

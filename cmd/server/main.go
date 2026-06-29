@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	"github.com/rorre/karamel/server"
+	"github.com/rorre/karamel/pkg/server"
 )
 
 func main() {

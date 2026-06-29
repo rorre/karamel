@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/quic-go/quic-go"
-	"github.com/rorre/karamel/protocol"
+	"github.com/rorre/karamel/pkg/protocol"
 )
 
 type Client struct {

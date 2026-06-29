@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rorre/karamel/protocol"
+	"github.com/rorre/karamel/pkg/protocol"
 )
 
 type SOCKS5Server struct {
