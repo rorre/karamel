@@ -300,6 +300,9 @@ func (s *SOCKS5Server) handleUDPAssociate(conn net.Conn) {
 		log.Printf("closing UDP channel %s", replyAddr)
 	}()
 
+	sessionID, cleanup := s.client.registerSession(udpListener)
+	defer cleanup()
+
 	go func() {
 		for {
 			select {
@@ -308,60 +311,72 @@ func (s *SOCKS5Server) handleUDPAssociate(conn net.Conn) {
 			default:
 			}
 
-			clientAddr, dstAddrStr, payload, socksHdr, err := parseUDPRequest(udpListener)
+			clientAddr, dstAddrStr, payload, _, err := parseUDPRequest(udpListener)
 			if err != nil {
+				if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+					select {
+					case <-done:
+						return
+					default:
+						continue
+					}
+				}
 				return
 			}
 
-			go s.relayUDPPacket(conn, udpListener, clientAddr, dstAddrStr, payload, socksHdr)
+			s.client.updateSessionClientAddr(sessionID, clientAddr)
+			s.client.relayUDPPacket(sessionID, dstAddrStr, payload)
 		}
 	}()
 
 	<-done
 }
 
-func (s *SOCKS5Server) relayUDPPacket(conn net.Conn, udpListener *net.UDPConn, clientAddr *net.UDPAddr, dstAddr string, payload []byte, socksHeader []byte) {
-	qc := s.client.conn
-	if qc == nil {
-		return
-	}
-
-	stream, err := qc.OpenStreamSync(context.Background())
+func buildSOCKS5UDPHeader(addrStr string) ([]byte, error) {
+	host, portStr, err := net.SplitHostPort(addrStr)
 	if err != nil {
-		log.Printf("udp relay: failed to open QUIC stream: %v", err)
-		return
+		return nil, err
 	}
-	defer stream.Close()
-
-	req := &protocol.Request{
-		Network: protocol.NetUDP,
-		Address: dstAddr,
-	}
-	if err := protocol.WriteRequest(stream, req); err != nil {
-		return
-	}
-
-	resp, err := protocol.ReadResponse(stream)
-	if err != nil || resp != protocol.RespSuccess {
-		return
-	}
-
-	if err := protocol.WriteFramedPacket(stream, payload); err != nil {
-		return
-	}
-
-	respData, err := protocol.ReadFramedPacket(stream)
+	var port uint16
+	_, err = fmt.Sscanf(portStr, "%d", &port)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	response := make([]byte, len(socksHeader)+len(respData))
-	copy(response, socksHeader)
-	copy(response[len(socksHeader):], respData)
+	ip := net.ParseIP(host)
+	if ip == nil {
+		// Domain name
+		domLen := len(host)
+		header := make([]byte, 4+1+domLen+2)
+		header[0] = 0x00
+		header[1] = 0x00
+		header[2] = 0x00 // frag
+		header[3] = 0x03 // domain ATYP
+		header[4] = byte(domLen)
+		copy(header[5:5+domLen], host)
+		binary.BigEndian.PutUint16(header[5+domLen:7+domLen], port)
+		return header, nil
+	}
 
-	udpListener.WriteToUDP(response, clientAddr)
+	if ip4 := ip.To4(); ip4 != nil {
+		header := make([]byte, 4+4+2)
+		header[0] = 0x00
+		header[1] = 0x00
+		header[2] = 0x00
+		header[3] = 0x01 // IPv4 ATYP
+		copy(header[4:8], ip4)
+		binary.BigEndian.PutUint16(header[8:10], port)
+		return header, nil
+	}
 
-	// idk just close it early i guess, we dont need to deal with the rest anyway
-	// not sure if its gonna fuck up clients or not
-	conn.Close()
+	// IPv6
+	ip6 := ip.To16()
+	header := make([]byte, 4+16+2)
+	header[0] = 0x00
+	header[1] = 0x00
+	header[2] = 0x00
+	header[3] = 0x04 // IPv6 ATYP
+	copy(header[4:20], ip6)
+	binary.BigEndian.PutUint16(header[20:22], port)
+	return header, nil
 }

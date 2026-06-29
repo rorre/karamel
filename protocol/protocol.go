@@ -168,3 +168,34 @@ func ReadFramedPacket(r io.Reader) ([]byte, error) {
 	_, err := io.ReadFull(r, data)
 	return data, err
 }
+
+// WriteUDPPacket writes a multiplexed UDP packet: SessionID (4 bytes), Address (string with 2 bytes length), Payload (2 bytes length + data).
+func WriteUDPPacket(w io.Writer, sessionID uint32, addr string, payload []byte) error {
+	idBuf := make([]byte, 4)
+	binary.BigEndian.PutUint32(idBuf, sessionID)
+	if _, err := w.Write(idBuf); err != nil {
+		return err
+	}
+	if err := writeString(w, addr); err != nil {
+		return err
+	}
+	return WriteFramedPacket(w, payload)
+}
+
+// ReadUDPPacket reads a multiplexed UDP packet.
+func ReadUDPPacket(r io.Reader) (uint32, string, []byte, error) {
+	idBuf := make([]byte, 4)
+	if _, err := io.ReadFull(r, idBuf); err != nil {
+		return 0, "", nil, err
+	}
+	sessionID := binary.BigEndian.Uint32(idBuf)
+	addr, err := readString(r)
+	if err != nil {
+		return 0, "", nil, err
+	}
+	payload, err := ReadFramedPacket(r)
+	if err != nil {
+		return 0, "", nil, err
+	}
+	return sessionID, addr, payload, nil
+}
