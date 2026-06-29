@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/quic-go/quic-go"
+	"github.com/rorre/karamel/client"
 	"github.com/rorre/karamel/protocol"
 )
 
@@ -35,25 +36,19 @@ func main() {
 	log.Printf("Connected to QUIC server")
 	defer conn.CloseWithError(0, "client shutting down")
 
-	c := &Client{
-		conn:          conn,
-		username:      *username,
-		password:      *password,
-		udpSessionMap: make(map[uint32]*udpSession),
-	}
-	c.socksServer = newSOCKS5Server(c)
+	c := client.NewClient(conn, *username, *password)
 
 	role := protocol.RoleClient
 	if *reverseMode {
 		role = protocol.RoleReverser
 	}
-	if err := c.authenticate(role); err != nil {
+	if err := c.Authenticate(role); err != nil {
 		log.Fatalf("Authentication failed: %v", err)
 	}
 
 	if *reverseMode {
-		runReverseProxy(c)
+		client.RunReverseProxy(c)
 	} else {
-		c.socksServer.runSOCKS5Server(*socksAddr)
+		client.NewSOCKS5Server(c).RunSOCKS5Server(*socksAddr)
 	}
 }

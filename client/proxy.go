@@ -1,4 +1,4 @@
-package main
+package client
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"github.com/rorre/karamel/protocol"
 )
 
-func runReverseProxy(c *Client) {
+func RunReverseProxy(c *Client) {
 	for {
 		stream, err := c.conn.AcceptStream(context.Background())
 		if err != nil {

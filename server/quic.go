@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"context"
@@ -20,13 +20,14 @@ import (
 
 type QUICServer struct {
 	reverserConn *quic.Conn
-	server       *Server
 	mu           sync.Mutex
 	cond         *sync.Cond
+	username     string
+	password     string
 }
 
-func newQUICServer(s *Server) *QUICServer {
-	q := &QUICServer{server: s}
+func NewQUICServer(username, password string) *QUICServer {
+	q := &QUICServer{username: username, password: password}
 	q.cond = sync.NewCond(&q.mu)
 	return q
 }
@@ -54,7 +55,7 @@ func generateTLSConfig() (*tls.Config, error) {
 	}, nil
 }
 
-func (q *QUICServer) runQUICServer(addr string) {
+func (q *QUICServer) RunQUICServer(addr string) {
 	tlsConf, err := generateTLSConfig()
 	if err != nil {
 		log.Fatalf("Failed to generate TLS config: %v", err)
@@ -119,7 +120,7 @@ func (q *QUICServer) authenticateConnection(conn *quic.Conn) (*protocol.Authenti
 	if err != nil {
 		return nil, err
 	}
-	if auth.Username != q.server.Username || auth.Password != q.server.Password {
+	if auth.Username != q.username || auth.Password != q.password {
 		protocol.WriteResponse(stream, protocol.RespFailure)
 		return nil, fmt.Errorf("invalid credentials")
 	}

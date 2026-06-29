@@ -1,4 +1,4 @@
-package main
+package client
 
 import (
 	"context"
@@ -18,11 +18,11 @@ type SOCKS5Server struct {
 	client *Client
 }
 
-func newSOCKS5Server(c *Client) *SOCKS5Server {
+func NewSOCKS5Server(c *Client) *SOCKS5Server {
 	return &SOCKS5Server{client: c}
 }
 
-func (s *SOCKS5Server) runSOCKS5Server(addr string) {
+func (s *SOCKS5Server) RunSOCKS5Server(addr string) {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Fatalf("Failed to listen SOCKS5 on %s: %v", addr, err)

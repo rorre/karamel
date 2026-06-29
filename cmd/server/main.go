@@ -1,12 +1,10 @@
 package main
 
-import "flag"
+import (
+	"flag"
 
-type Server struct {
-	Quic     *QUICServer
-	Username string
-	Password string
-}
+	"github.com/rorre/karamel/server"
+)
 
 func main() {
 	quicAddr := flag.String("quic", ":4433", "QUIC listen address")
@@ -14,11 +12,5 @@ func main() {
 	password := flag.String("password", "karamel", "Authentication password")
 	flag.Parse()
 
-	s := Server{
-		Username: *username,
-		Password: *password,
-	}
-
-	s.Quic = newQUICServer(&s)
-	s.Quic.runQUICServer(*quicAddr)
+	server.NewQUICServer(*username, *password).RunQUICServer(*quicAddr)
 }

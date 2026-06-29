@@ -1,4 +1,4 @@
-package main
+package client
 
 import (
 	"context"
@@ -12,10 +12,9 @@ import (
 )
 
 type Client struct {
-	conn        *quic.Conn
-	socksServer *SOCKS5Server
-	username    string
-	password    string
+	conn     *quic.Conn
+	username string
+	password string
 
 	// For forever running UDP stream
 	udpStream     *quic.Stream
@@ -29,6 +28,15 @@ type Client struct {
 type udpSession struct {
 	udpListener *net.UDPConn
 	clientAddr  *net.UDPAddr
+}
+
+func NewClient(conn *quic.Conn, username, password string) *Client {
+	return &Client{
+		conn:          conn,
+		username:      username,
+		password:      password,
+		udpSessionMap: make(map[uint32]*udpSession),
+	}
 }
 
 func (c *Client) getUDPStream() (*quic.Stream, error) {
@@ -153,7 +161,7 @@ func (c *Client) relayUDPPacket(sessionID uint32, dstAddrStr string, payload []b
 	}
 }
 
-func (c *Client) authenticate(role byte) error {
+func (c *Client) Authenticate(role byte) error {
 	stream, err := c.conn.OpenStreamSync(context.Background())
 	if err != nil {
 		return err
